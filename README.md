@@ -12,28 +12,36 @@ good estimate.
 This package wraps `propaq`'s Heisenberg-picture Pauli propagator to do
 this, so you do not need to write the sampling code by hand.
 
+The Hamiltonian and the per-step circuit are plain Qiskit objects
+(`qiskit.quantum_info.SparsePauliOp` and `qiskit.circuit.QuantumCircuit`).
+This package only adds the qDRIFT random-sampling step; it then hands the
+result to propaq through propaq's own Qiskit converters
+(`PauliCircuit.from_qiskit`, `PauliTermSum.from_sparse_pauli_op`), instead
+of building propaq's native `PauliRotation`/`PauliString` objects by hand.
+
 ## Install
 
 ```bash
 pip install -e .
 ```
 
-This also installs `propaq` as a dependency.
+This also installs `propaq` and `qiskit` as dependencies.
 
 ## Use
 
 ```python
-from propaq_qdrift import Hamiltonian, qdrift_expectation_value
+from qiskit.quantum_info import SparsePauliOp
+from propaq_qdrift import qdrift_expectation_value
 
 # Build H = Z0 Z1 + 0.5 X0 + 0.5 X1
-h = Hamiltonian.from_labels([
-    (1.0, "ZZ"),
-    (0.5, "XI"),
-    (0.5, "IX"),
+h = SparsePauliOp.from_list([
+    ("ZZ", 1.0),
+    ("XI", 0.5),
+    ("IX", 0.5),
 ])
 
 # Measure the Hamiltonian itself (the energy)
-observable = h.to_pauli_term_sum()
+observable = h
 
 result = qdrift_expectation_value(
     h, observable,
@@ -46,18 +54,21 @@ result = qdrift_expectation_value(
 print(result.mean, "+/-", result.stderr)
 ```
 
-Pauli labels: the first letter is qubit 0, the next letter is qubit 1, and
-so on. Use `I` for identity. For example, `"ZIX"` means Z on qubit 0,
-identity on qubit 1, X on qubit 2.
+Pauli labels follow Qiskit's own convention: the *last* letter is qubit 0.
+For example, `"XIZ"` means Z on qubit 0, identity on qubit 1, X on qubit
+2. For a Hamiltonian with many terms, `SparsePauliOp.from_sparse_list`
+is usually easier than writing out full-length labels by hand — see
+`examples/tfim_qdrift.py`.
 
-See `examples/tfim_qdrift.py` for a full example (a transverse-field Ising
-model).
+The observable can also be passed as a propaq `PauliTermSum` directly, if
+you already have one.
 
 ## Main pieces
 
-- `Hamiltonian`, `PauliTerm`, `pauli_string` — build a Hamiltonian from Pauli labels.
-- `qdrift_circuit`, `sample_qdrift_rotations` — build one random qDRIFT circuit.
+- `sample_qdrift_circuit` — draw one random qDRIFT circuit, as a Qiskit `QuantumCircuit`.
+- `qdrift_circuit` — the same, already converted to a propaq `PauliCircuit`.
 - `qdrift_expectation_value`, `QDriftResult` — run many circuits and average.
+- `qdrift_lambda` — the qDRIFT normalization constant (`sum |coeff_i|`) for a Hamiltonian.
 
 ## Test
 

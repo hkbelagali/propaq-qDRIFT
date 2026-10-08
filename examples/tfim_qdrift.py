@@ -4,8 +4,9 @@ Example: qDRIFT on a small transverse-field Ising model (TFIM).
 
 H = J * sum_i Z_i Z_{i+1}  +  h * sum_i X_i   (open chain)
 
-This script builds the Hamiltonian, runs qDRIFT to copy time evolution,
-and prints the estimated energy at the end.
+The Hamiltonian is a plain Qiskit SparsePauliOp. This script runs qDRIFT
+to copy time evolution under it, and prints the estimated energy at the
+end.
 
 Usage:
     python3 examples/tfim_qdrift.py
@@ -13,36 +14,34 @@ Usage:
 
 from __future__ import annotations
 
-from propaq_qdrift import Hamiltonian, qdrift_expectation_value
+from qiskit.quantum_info import SparsePauliOp
+
+from propaq_qdrift import qdrift_expectation_value, qdrift_lambda
 
 
-def build_tfim(n_qubits: int, j_coupling: float, h_field: float) -> Hamiltonian:
-    """Build an open-chain TFIM Hamiltonian with n_qubits sites."""
-    terms: list[tuple[float, str]] = []
+def build_tfim(n_qubits: int, j_coupling: float, h_field: float) -> SparsePauliOp:
+    """Build an open-chain TFIM Hamiltonian with n_qubits sites, as a SparsePauliOp."""
+    sparse_terms: list[tuple[str, list[int], float]] = []
 
     # ZZ coupling terms, one for each neighbor pair.
     for site in range(n_qubits - 1):
-        label = ["I"] * n_qubits
-        label[site] = "Z"
-        label[site + 1] = "Z"
-        terms.append((j_coupling, "".join(label)))
+        sparse_terms.append(("ZZ", [site, site + 1], j_coupling))
 
     # Transverse field terms, one per site.
     for site in range(n_qubits):
-        label = ["I"] * n_qubits
-        label[site] = "X"
-        terms.append((h_field, "".join(label)))
+        sparse_terms.append(("X", [site], h_field))
 
-    return Hamiltonian.from_labels(terms)
+    return SparsePauliOp.from_sparse_list(sparse_terms, num_qubits=n_qubits)
 
 
 def main() -> None:
     n_qubits = 6
     hamiltonian = build_tfim(n_qubits, j_coupling=1.0, h_field=0.5)
-    print(f"Hamiltonian: {hamiltonian}")
+    print(f"Hamiltonian: {len(hamiltonian)} terms on {hamiltonian.num_qubits} qubits")
+    print(f"qDRIFT lambda = {qdrift_lambda(hamiltonian):.3f}")
 
-    # Measure total energy (the Hamiltonian itself, as an observable).
-    observable = hamiltonian.to_pauli_term_sum()
+    # Measure total energy (the Hamiltonian itself, as the observable).
+    observable = hamiltonian
 
     total_time = 1.0
     n_steps = 200
