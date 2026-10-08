@@ -66,9 +66,13 @@ def test_sample_qdrift_circuit_gate_count():
 
 
 def test_qdrift_circuit_runs():
+    # Each qDRIFT step is one PauliEvolutionGate, but propaq may decompose a
+    # multi-qubit Pauli (like "ZZ") into more than one native rotation, so
+    # the final rotation count can be bigger than n_steps -- it should never
+    # be smaller, and the circuit should not be empty.
     hamiltonian = SparsePauliOp.from_list([("ZZ", 1.0), ("XI", 0.5), ("IX", 0.5)])
     circuit = qdrift_circuit(hamiltonian, total_time=0.5, n_steps=20, rng=random.Random(0))
-    assert len(circuit.rotations) == 20
+    assert len(circuit.rotations) >= 20
 
 
 def test_n_steps_must_be_positive():
